@@ -2,6 +2,7 @@ import * as THREE from 'three/build/three.module.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
+import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 
 class App {
   constructor() {
@@ -37,6 +38,10 @@ class App {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.target.set(0, 1.6, 0)
     this.controls.update()
+
+    this.raycaster = new THREE.Raycaster()
+    this.workingMatrix = new THREE.Matrix4()
+    this.workingVector = new THREE.Vector3()
 
     // this.initSceneCube()
     this.initScene()
@@ -95,6 +100,40 @@ class App {
   setupVR(){
     this.renderer.xr.enabled = true
     document.body.appendChild( VRButton.createButton( this.renderer ) )
+
+    this.controllers = this.buildControllers()
+  }
+
+  buildControllers() {
+    const controllerModelFactory = new XRControllerModelFactory()
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, -1)
+    ])
+    const line = new THREE.Line(geometry)
+    line.name = 'line'
+    line.scale.z = 0
+
+    const controllers = []
+
+    for (let i=0; i < 2; i++) {
+      const controller = this.renderer.xr.getController(i)
+      controller.add(line.clone())
+      controller.userData.selectPressed = false
+      this.scene.add(controller)
+
+      controllers.push(controller)
+
+      const grip = this.renderer.xr.getControllerGrip(i)
+      grip.add(controllerModelFactory.createControllerModel(grip))
+      this.scene.add(grip)
+    }
+
+    return controllers
+  }
+
+  handleController(contoller) {
+
   }
 
   resize() {
@@ -108,6 +147,14 @@ class App {
       this.mesh.rotateX(0.005)
       this.mesh.rotateY(0.01)
     }
+
+    if (this.controllers) {
+      const self = this
+      this.controllers.forEach((controller) => {
+        self.handleController(controller)
+      })
+    }
+
     this.renderer.render(this.scene, this.camera)
   }
 }
