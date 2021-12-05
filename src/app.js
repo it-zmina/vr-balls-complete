@@ -3,6 +3,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
+import {controllers} from "three/examples/jsm/libs/dat.gui.module";
 
 class App {
   constructor() {
@@ -34,7 +35,7 @@ class App {
     this.renderer.outputEncoding = THREE.sRGBEncoding
     container.appendChild(this.renderer.domElement)
 
-
+    this.controllers = []
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.target.set(0, 1.6, 0)
     this.controls.update()
@@ -89,12 +90,16 @@ class App {
       const object = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial( { color: Math.random() * 0xffffff } ) )
 
       object.position.x = this.random( -2, 2 )
-      object.position.y = this.random( -2, 2 )
+      object.position.y = this.random( 0, 2 )
       object.position.z = this.random( -2, 2 )
 
       this.room.add( object )
-
     }
+
+    this.highlight = new THREE.Mesh ( geometry, new THREE.MeshBasicMaterial( {
+      color: 0xFFFFFF, side: THREE.BackSide }))
+    this.highlight.scale.set( 1.2, 1.2, 1.2)
+    this.scene.add( this.highlight )
   }
 
   setupVR(){
@@ -102,6 +107,24 @@ class App {
     document.body.appendChild( VRButton.createButton( this.renderer ) )
 
     this.controllers = this.buildControllers()
+
+    const self = this
+
+    function onSelectStart() {
+      this.children[0].scale.z = 10
+      this.userData.selectPressed = true
+    }
+
+    function onSelectEnd () {
+      this.children[0].scale.z = 0
+      self.highlight.visible = false
+      this.userData.selectPressed = false
+    }
+
+    this.controllers.forEach( (controller) => {
+      controller.addEventListener( 'selectstart', onSelectStart );
+      controller.addEventListener( 'selectend', onSelectEnd );
+    });
   }
 
   buildControllers() {
@@ -132,8 +155,27 @@ class App {
     return controllers
   }
 
-  handleController(contoller) {
+  handleController(controller) {
+    if (controller.userData.selectPressed) {
+      controller.children[0].scale.z = 10
+      this.workingMatrix.identity().extractRotation( controller.matrixWorld)
 
+      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld)
+
+      this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.workingMatrix)
+
+      const intersects = this.raycaster.intersectObjects(this.room.children)
+
+      if (intersects.length > 0) {
+        if (intersects[0].object.uuid !== this.highlight.uuid) {
+          intersects[0].object.add(this.highlight)
+        }
+        this.highlight.visible = true
+        controller.children[0].scale.z = intersects[0].distance
+      } else {
+        this.highlight.visible = false
+      }
+    }
   }
 
   resize() {

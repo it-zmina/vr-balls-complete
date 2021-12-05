@@ -9,6 +9,7 @@
     "start": "npx serve dist",
     "start-https": "npx http-server -S -C cert.pem dist",
     "dev-server": "npx webpack serve --mode development",
+    "dev-server-https": "npx webpack serve --https --mode development",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
