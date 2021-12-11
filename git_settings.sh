@@ -1,3 +1,5 @@
+#!/bin/sh
+
 #dir=${PWD##*/}
 dir=".git"
 echo "$dir"
