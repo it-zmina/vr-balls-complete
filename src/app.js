@@ -79,6 +79,9 @@ class App {
   initScene(){
     this.radius = 0.08
 
+    this.movableObjects = new THREE.Group();
+    this.scene.add( this.movableObjects );
+
     this.room = new THREE.LineSegments(
         new BoxLineGeometry( 6, 6, 6, 10, 10, 10 ),
         new THREE.LineBasicMaterial( { color: 0x808080 } )
@@ -96,7 +99,8 @@ class App {
       object.position.y = this.random( 0, 2 )
       object.position.z = this.random( -2, 2 )
 
-      this.room.add( object )
+      // this.room.add( object )
+      this.movableObjects.add( object )
     }
 
     this.highlight = new THREE.Mesh ( geometry, new THREE.MeshBasicMaterial( {
@@ -110,8 +114,9 @@ class App {
     document.body.appendChild( VRButton.createButton( this.renderer ) )
 
     let i = 0
-    this.flashLightController(i++)
-    this.buildStandardController(i++)
+    this.buildDragController(i++)
+    // this.flashLightController(i++)
+    // this.buildStandardController(i++)
     // this.flashLightController(i++)
     // this.buildStandardController(i++)
   }
@@ -239,6 +244,104 @@ class App {
 
     this.scene.add(controller)
     this.controllers[index] = controller
+  }
+
+  buildDragController(index) {
+    const controllerModelFactory = new XRControllerModelFactory()
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, -1)
+    ])
+    const line = new THREE.Line(geometry)
+    line.name = 'line'
+    line.scale.z = 0
+
+    const controller = this.renderer.xr.getController(index)
+
+    controller.add(line)
+    controller.userData.selectPressed = false
+
+    const grip = this.renderer.xr.getControllerGrip(index)
+    grip.add(controllerModelFactory.createControllerModel(grip))
+    this.scene.add(grip)
+
+    const self = this
+
+    function onSelectStart(event) {
+      const controller = event.target;
+      const intersections = getIntersections(controller);
+
+      if (intersections.length > 0) {
+        const intersection = intersections[0];
+        const object = intersection.object;
+        object.material.emissive.b = 1;
+        controller.attach(object);
+        controller.userData.selected = object;
+      }
+    }
+
+    function onSelectEnd(event) {
+      const controller = event.target;
+
+      if (controller.userData.selected !== undefined) {
+        const object = controller.userData.selected;
+        object.material.emissive.b = 0;
+        self.movableObjects.attach(object);
+        controller.userData.selected = undefined;
+      }
+    }
+
+    controller.addEventListener('selectstart', onSelectStart);
+    controller.addEventListener('selectend', onSelectEnd);
+
+    const tempMatrix = new THREE.Matrix4();
+    const rayCaster = new THREE.Raycaster();
+    const intersected = [];
+
+    controller.handle = () => {
+      cleanIntersected();
+      intersectObjects(controller)
+    }
+
+    this.scene.add(controller)
+    this.controllers[index] = controller
+
+    function getIntersections(controller) {
+
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+      rayCaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      rayCaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+      return rayCaster.intersectObjects(self.movableObjects.children);
+    }
+
+    function intersectObjects(controller) {
+      // Do not highlight when already selected
+      if (controller.userData.selected !== undefined) return;
+
+      const line = controller.getObjectByName('line');
+      const intersections = getIntersections(controller);
+
+      if (intersections.length > 0) {
+        const intersection = intersections[0];
+
+        const object = intersection.object;
+        object.material.emissive.r = 1;
+        intersected.push(object);
+
+        line.scale.z = intersection.distance;
+      } else {
+        line.scale.z = 5;
+      }
+    }
+
+    function cleanIntersected() {
+      while (intersected.length) {
+        const object = intersected.pop();
+        object.material.emissive.r = 0;
+      }
+    }
   }
 
   handleController(controller) {
