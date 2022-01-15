@@ -3,9 +3,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
-import flashLightPack from "../assets/flash-light.glb"
-import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
-import {SpotLightVolumetricMaterial} from "./utils/SpotLightVolumetricMaterial";
+import {FlashLightController} from "./controllers/FlashLightController";
 
 class App {
   constructor() {
@@ -45,7 +43,6 @@ class App {
     this.raycaster = new THREE.Raycaster()
     this.workingMatrix = new THREE.Matrix4()
 
-    this.spotlights = {}
 
     // this.initSceneCube()
     this.initScene()
@@ -114,95 +111,12 @@ class App {
     document.body.appendChild( VRButton.createButton( this.renderer ) )
 
     let i = 0
-    this.buildDragController(i++)
-    // this.flashLightController(i++)
+    // this.buildDragController(i++)
+    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene,
+        this.movableObjects, this.highlight)
     // this.buildStandardController(i++)
     // this.flashLightController(i++)
     // this.buildStandardController(i++)
-  }
-
-  flashLightController(index) {
-    const self = this
-
-    function onSelectStart() {
-      this.userData.selectPressed = true
-      if (self.spotlights[this.uuid]) {
-        self.spotlights[this.uuid].visible = true
-      } else {
-        this.children[0].scale.z = 10
-      }
-    }
-
-    function onSelectEnd () {
-      self.highlight.visible = false
-      this.userData.selectPressed = false
-      if (self.spotlights[this.uuid]) {
-        self.spotlights[this.uuid].visible = false
-      } else {
-        this.children[0].scale.z = 0
-      }
-    }
-
-    let controller = this.renderer.xr.getController(index)
-    controller.addEventListener( 'selectstart', onSelectStart );
-    controller.addEventListener( 'selectend', onSelectEnd );
-    controller.addEventListener( 'connected', function (event) {
-      self.buildFlashLightController.call(self, event.data, this)
-    })
-    controller.addEventListener( 'disconnected', function () {
-      while(this.children.length > 0) {
-        this.remove(this.children[0])
-        const controllerIndex = self.controllers.indexOf(this)
-        self.controllers[controllerIndex] = null
-      }
-    })
-    controller.handle = () => this.handleFlashLightController(controller)
-
-    this.controllers[index] = controller
-    this.scene.add(controller)
-  }
-
-  buildFlashLightController(data, controller) {
-    let geometry, material, loader
-
-    const self = this
-
-    if (data.targetRayMode === 'tracked-pointer') {
-      loader = new GLTFLoader()
-      loader.load(flashLightPack, (gltf) => {
-            const flashLight = gltf.scene.children[2]
-            const scale = 0.6
-            flashLight.scale.set(scale, scale, scale)
-            controller.add(flashLight)
-            const spotlightGroup = new THREE.Group()
-            self.spotlights[controller.uuid] = spotlightGroup
-
-            const spotlight = new THREE.SpotLight(0xFFFFFF, 2, 12, Math.PI / 15,
-                0.3)
-            spotlight.position.set(0, 0, 0)
-            spotlight.target.position.set(0, 0, -1)
-            spotlightGroup.add(spotlight.target)
-            spotlightGroup.add(spotlight)
-            controller.add(spotlightGroup)
-
-            spotlightGroup.visible = false
-
-            geometry = new THREE.CylinderBufferGeometry(0.03, 1, 5, 32, true)
-            geometry.rotateX(Math.PI / 2)
-            material = new SpotLightVolumetricMaterial()
-            const cone = new THREE.Mesh(geometry, material)
-            cone.translateZ(-2.6)
-            spotlightGroup.add(cone)
-          },
-          null,
-          (error) => console.error(`An error happened: ${error}`)
-      )
-
-    } else if (data.targetRayMode == 'gaze') {
-      geometry = new THREE.RingBufferGeometry(0.02, 0.04, 32).translate(0, 0, -1);
-      material = new THREE.MeshBasicMaterial({opacity: 0.5, transparent: true});
-      controller.add(new THREE.Mesh(geometry, material))
-    }
   }
 
   buildStandardController(index) {
@@ -361,27 +275,6 @@ class App {
         }
         this.highlight.visible = true
         controller.children[0].scale.z = intersects[0].distance
-      } else {
-        this.highlight.visible = false
-      }
-    }
-  }
-
-  handleFlashLightController(controller) {
-    if (controller.userData.selectPressed) {
-      this.workingMatrix.identity().extractRotation( controller.matrixWorld)
-
-      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld)
-
-      this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.workingMatrix)
-
-      const intersects = this.raycaster.intersectObjects(this.room.children)
-
-      if (intersects.length > 0) {
-        if (intersects[0].object.uuid !== this.highlight.uuid) {
-          intersects[0].object.add(this.highlight)
-        }
-        this.highlight.visible = true
       } else {
         this.highlight.visible = false
       }
