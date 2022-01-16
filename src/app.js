@@ -4,6 +4,9 @@ import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 import {FlashLightController} from "./controllers/FlashLightController";
+import {DragController} from "./controllers/DragController";
+import {SelectController} from "./controllers/SelectController";
+
 
 class App {
   constructor() {
@@ -111,175 +114,14 @@ class App {
     document.body.appendChild( VRButton.createButton( this.renderer ) )
 
     let i = 0
-    // this.buildDragController(i++)
-    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene,
+    // this.controllers[i] = new DragController(this.renderer, i++, this.scene,
+    //     this.movableObjects)
+    // this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene,
+    //     this.movableObjects, this.highlight)
+    this.controllers[i] = new SelectController(this.renderer, i++, this.scene,
         this.movableObjects, this.highlight)
-    // this.buildStandardController(i++)
-    // this.flashLightController(i++)
-    // this.buildStandardController(i++)
   }
 
-  buildStandardController(index) {
-    const controllerModelFactory = new XRControllerModelFactory()
-    const geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -1)
-    ])
-    const line = new THREE.Line(geometry)
-    line.name = 'line'
-    line.scale.z = 0
-
-    const controller = this.renderer.xr.getController(index)
-
-    controller.add(line)
-    controller.userData.selectPressed = false
-
-    const grip = this.renderer.xr.getControllerGrip(index)
-    grip.add(controllerModelFactory.createControllerModel(grip))
-    this.scene.add(grip)
-
-    const self = this
-
-    function onSelectStart() {
-      this.children[0].scale.z = 10
-      this.userData.selectPressed = true
-    }
-
-    function onSelectEnd () {
-      this.children[0].scale.z = 0
-      self.highlight.visible = false
-      this.userData.selectPressed = false
-    }
-
-    controller.addEventListener( 'selectstart', onSelectStart );
-    controller.addEventListener( 'selectend', onSelectEnd );
-
-    controller.handle = () => this.handleController(controller)
-
-    this.scene.add(controller)
-    this.controllers[index] = controller
-  }
-
-  buildDragController(index) {
-    const controllerModelFactory = new XRControllerModelFactory()
-    const geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -1)
-    ])
-    const line = new THREE.Line(geometry)
-    line.name = 'line'
-    line.scale.z = 0
-
-    const controller = this.renderer.xr.getController(index)
-
-    controller.add(line)
-    controller.userData.selectPressed = false
-
-    const grip = this.renderer.xr.getControllerGrip(index)
-    grip.add(controllerModelFactory.createControllerModel(grip))
-    this.scene.add(grip)
-
-    const self = this
-
-    function onSelectStart(event) {
-      const controller = event.target;
-      const intersections = getIntersections(controller);
-
-      if (intersections.length > 0) {
-        const intersection = intersections[0];
-        const object = intersection.object;
-        object.material.emissive.b = 1;
-        controller.attach(object);
-        controller.userData.selected = object;
-      }
-    }
-
-    function onSelectEnd(event) {
-      const controller = event.target;
-
-      if (controller.userData.selected !== undefined) {
-        const object = controller.userData.selected;
-        object.material.emissive.b = 0;
-        self.movableObjects.attach(object);
-        controller.userData.selected = undefined;
-      }
-    }
-
-    controller.addEventListener('selectstart', onSelectStart);
-    controller.addEventListener('selectend', onSelectEnd);
-
-    const tempMatrix = new THREE.Matrix4();
-    const rayCaster = new THREE.Raycaster();
-    const intersected = [];
-
-    controller.handle = () => {
-      cleanIntersected();
-      intersectObjects(controller)
-    }
-
-    this.scene.add(controller)
-    this.controllers[index] = controller
-
-    function getIntersections(controller) {
-
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
-
-      rayCaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      rayCaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-
-      return rayCaster.intersectObjects(self.movableObjects.children);
-    }
-
-    function intersectObjects(controller) {
-      // Do not highlight when already selected
-      if (controller.userData.selected !== undefined) return;
-
-      const line = controller.getObjectByName('line');
-      const intersections = getIntersections(controller);
-
-      if (intersections.length > 0) {
-        const intersection = intersections[0];
-
-        const object = intersection.object;
-        object.material.emissive.r = 1;
-        intersected.push(object);
-
-        line.scale.z = intersection.distance;
-      } else {
-        line.scale.z = 5;
-      }
-    }
-
-    function cleanIntersected() {
-      while (intersected.length) {
-        const object = intersected.pop();
-        object.material.emissive.r = 0;
-      }
-    }
-  }
-
-  handleController(controller) {
-    if (controller.userData.selectPressed) {
-      controller.children[0].scale.z = 10
-      this.workingMatrix.identity().extractRotation( controller.matrixWorld)
-
-      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld)
-
-      this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.workingMatrix)
-
-      const intersects = this.raycaster.intersectObjects(this.room.children)
-
-      if (intersects.length > 0) {
-        if (intersects[0].object.uuid !== this.highlight.uuid) {
-          intersects[0].object.add(this.highlight)
-        }
-        this.highlight.visible = true
-        controller.children[0].scale.z = intersects[0].distance
-      } else {
-        this.highlight.visible = false
-      }
-    }
-  }
 
   resize() {
     this.camera.aspect = window.innerWidth / window.innerHeight

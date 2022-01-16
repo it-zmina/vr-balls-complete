@@ -5,7 +5,6 @@ import flashLightPack from "../../assets/flash-light.glb";
 import {SpotLightVolumetricMaterial} from "../utils/SpotLightVolumetricMaterial";
 
 export class FlashLightController extends Controller {
-  raycaster = new THREE.Raycaster()
   spotlights = {}
 
   constructor(renderer, index, scene, movableObjects, highlight) {
@@ -13,11 +12,13 @@ export class FlashLightController extends Controller {
     this.scene = scene
     this.movableObjects = movableObjects
     this.highlight = highlight
+    this.workingMatrix = new THREE.Matrix4()
+    this.raycaster = new THREE.Raycaster()
+
     this.build(index)
   }
 
   build(index) {
-    this.workingMatrix = new THREE.Matrix4()
 
     const self = this
 
