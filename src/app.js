@@ -2,20 +2,14 @@ import * as THREE from 'three/build/three.module.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
-import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
-import {FlashLightController} from "./controllers/FlashLightController";
-import {DragController} from "./controllers/DragController";
 import {SelectController} from "./controllers/SelectController";
-
+import {CanvasUI} from "./utils/CanvasUI";
 
 class App {
   constructor() {
     const container = document.createElement('div')
     document.body.appendChild(container)
 
-    // this.camera = new THREE.PerspectiveCamera(60,
-    //     window.innerWidth / window.innerHeight, 0.1, 100)
-    // this.camera.position.set(0, 0, 4)
     this.camera = new THREE.PerspectiveCamera(50,
         window.innerWidth / window.innerHeight, 0.1, 100)
     this.camera.position.set( 0, 1.6, 3 )
@@ -23,12 +17,10 @@ class App {
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x505050)
 
-    // const ambient = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 0.3)
     const ambient = new THREE.HemisphereLight( 0x606060, 0x404040, 1)
     this.scene.add(ambient)
 
     const light = new THREE.DirectionalLight(0xffffff)
-    // light.position.set(0.2, 1, 1)
     light.position.set( 1, 1, 1 ).normalize()
     this.scene.add(light)
 
@@ -43,16 +35,14 @@ class App {
     this.controls.target.set(0, 1.6, 0)
     this.controls.update()
 
-    this.raycaster = new THREE.Raycaster()
-    this.workingMatrix = new THREE.Matrix4()
-
-
     // this.initSceneCube()
     this.initScene()
     this.setupVR()
 
-    this.renderer.setAnimationLoop(this.render.bind(this))
+    this.clock = new THREE.Clock()
+    this.elapsedTime = 0
 
+    this.renderer.setAnimationLoop(this.render.bind(this))
     window.addEventListener('resize', this.resize.bind(this))
   }
 
@@ -107,12 +97,40 @@ class App {
       color: 0xFFFFFF, side: THREE.BackSide }))
     this.highlight.scale.set( 1.2, 1.2, 1.2)
     this.scene.add( this.highlight )
+
+    // this.addText()
+    this.ui = this.createUI()
+  }
+
+  createUI(){
+    const config = {
+      panelSize: { height: 0.8 },
+      height: 500,
+      body: { type: "text" }
+    }
+    const ui = new CanvasUI( { body: "" }, config );
+    ui.mesh.position.set(0, 1.5, -1);
+    this.scene.add( ui.mesh );
+    return ui;
+  }
+
+  updateUI(buttonStates){
+    if (!buttonStates) {
+      return
+    }
+
+    const str = JSON.stringify(buttonStates, null, 2);
+    if (this.strStates === undefined || ( str != this.strStates )){
+      this.ui.updateElement( 'body', str );
+      this.ui.update();
+      this.strStates = str;
+    }
   }
 
   setupVR(){
     this.renderer.xr.enabled = true
     document.body.appendChild( VRButton.createButton( this.renderer ) )
-
+    const self = this
     let i = 0
     // this.controllers[i] = new DragController(this.renderer, i++, this.scene,
     //     this.movableObjects)
@@ -121,7 +139,6 @@ class App {
     this.controllers[i] = new SelectController(this.renderer, i++, this.scene,
         this.movableObjects, this.highlight)
   }
-
 
   resize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
@@ -135,11 +152,27 @@ class App {
       this.mesh.rotateY(0.01)
     }
 
-    if (this.controllers) {
-      this.controllers.forEach(controller => controller.handle())
+    if (this.renderer.xr.isPresenting && this.controllers) {
+        this.controllers.forEach(controller => controller.handle())
     }
 
+    this.showDebugText()
+
     this.renderer.render(this.scene, this.camera)
+  }
+
+  showDebugText() {
+    const dt = this.clock.getDelta()
+
+    if (this.renderer.xr.isPresenting) {
+      this.elapsedTime += dt
+      if (this.elapsedTime > 0.3) {
+        this.elapsedTime = 0
+        this.updateUI(this.controllers[0].buttonStates)
+      }
+    } else {
+      // this.stats.update()
+    }
   }
 }
 

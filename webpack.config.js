@@ -11,7 +11,8 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        {from: 'public', to: 'inner'}
+        {from: 'public', to: 'inner'},
+        {from: 'node_modules/@webxr-input-profiles/assets/dist/profiles', to: 'webxr-input-profiles'}
       ]
     })
   ],

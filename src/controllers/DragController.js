@@ -104,6 +104,7 @@ export class DragController extends Controller {
   }
 
   handle() {
+    super.handle()
     this.cleanIntersected()
     this.intersectObjects()
   }

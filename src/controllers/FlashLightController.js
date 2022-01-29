@@ -15,11 +15,10 @@ export class FlashLightController extends Controller {
     this.workingMatrix = new THREE.Matrix4()
     this.raycaster = new THREE.Raycaster()
 
-    this.build(index)
+    this.build()
   }
 
-  build(index) {
-
+  build() {
     const self = this
 
     function onSelectStart() {
@@ -57,6 +56,8 @@ export class FlashLightController extends Controller {
   }
 
   handle() {
+    super.handle()
+
     if (this.controller.userData.selectPressed) {
       this.workingMatrix.identity().extractRotation(this.controller.matrixWorld)
 

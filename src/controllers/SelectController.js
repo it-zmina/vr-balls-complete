@@ -3,7 +3,7 @@ import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerMod
 import * as THREE from "three";
 
 export class SelectController extends Controller{
-  constructor(renderer, index, scene, movableObjects, highlight) {
+  constructor(renderer, index, scene, movableObjects, highlight, onConnect) {
     super(renderer, index)
     this.scene = scene
     this.movableObjects = movableObjects
@@ -51,6 +51,7 @@ export class SelectController extends Controller{
   }
 
   handle() {
+    super.handle()
     if (this.controller.userData.selectPressed) {
       this.controller.children[0].scale.z = 10
       this.workingMatrix.identity().extractRotation( this.controller.matrixWorld)
