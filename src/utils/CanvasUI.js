@@ -9,7 +9,7 @@ import { Mesh,
         Vector3, 
         Quaternion,
         IcosahedronBufferGeometry 
-       } from 'three/build/three.module.js';
+       } from 'three';
 import { CanvasKeyboard } from './CanvasKeyboard.js';
 
 /*An element is defined by 

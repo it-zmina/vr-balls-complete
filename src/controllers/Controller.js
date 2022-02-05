@@ -15,12 +15,13 @@ export class Controller {
       throw Error("Invalid renderer value: " + inspect(renderer))
     }
     this.renderer = renderer
+    this.index = index
     this.controller = this.renderer.xr.getController(index)
     this.elapsedTime = 0
     this.clock = new THREE.Clock()
 
     const self = this
-    this.controller.addEventListener('connected', event => this.onConnect(event, self))
+    this.controller.addEventListener('connected', (event, data) => this.onConnect(event, self))
   }
 
   handle() {
@@ -72,7 +73,7 @@ export class Controller {
 
   updateGamepadState() {
     const session = this.renderer.xr.getSession()
-    const inputSource = session.inputSources[0]
+    const inputSource = session.inputSources[this.index]
     if (inputSource && inputSource.gamepad && this.gamepadIndices && this.buttonStates) {
       const gamepad = inputSource.gamepad
       try {
@@ -112,7 +113,11 @@ export class Controller {
         info[key] = components;
       });
 
-      self.createButtonStates(info.right);
+      if (event.data.handedness === 'left') {
+        self.createButtonStates(info.left);
+      } else {
+        self.createButtonStates(info.right);
+      }
 
       // console.log( JSON.stringify(info) );
     });

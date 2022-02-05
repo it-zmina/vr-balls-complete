@@ -27,6 +27,6 @@
   "dependencies": {
     "@webxr-input-profiles/assets": "^1.0.9",
     "browser-util-inspect": "^0.2.0",
-    "three": "^0.133.1"
+    "three": "0.137.5"
   }
 }
