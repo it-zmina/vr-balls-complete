@@ -1,36 +1,24 @@
 import {Controller} from "./Controller";
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 import * as THREE from "three";
+import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
+import flashLightPack from "../../assets/flash-light.glb";
+import {SpotLightVolumetricMaterial} from "../utils/SpotLightVolumetricMaterial";
 
 export class SelectController extends Controller{
-  constructor(renderer, index, scene, movableObjects, highlight, onConnect) {
+  constructor(renderer, index, scene, movableObjects, highlight, dolly) {
     super(renderer, index)
     this.scene = scene
     this.movableObjects = movableObjects
     this.highlight = highlight
+    this.dolly = dolly
     this.workingMatrix = new THREE.Matrix4()
     this.rayCaster = new THREE.Raycaster();
 
-    this.build(index)
+    this.build()
   }
 
-  build(index) {
-    const controllerModelFactory = new XRControllerModelFactory()
-    const geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -1)
-    ])
-    const line = new THREE.Line(geometry)
-    line.name = 'line'
-    line.scale.z = 0
-
-    this.controller.add(line)
-    this.controller.userData.selectPressed = false
-
-    const grip = this.renderer.xr.getControllerGrip(index)
-    grip.add(controllerModelFactory.createControllerModel(grip))
-    this.scene.add(grip)
-
+  build() {
     const self = this
 
     function onSelectStart() {
@@ -46,8 +34,34 @@ export class SelectController extends Controller{
 
     this.controller.addEventListener( 'selectstart', onSelectStart );
     this.controller.addEventListener( 'selectend', onSelectEnd );
+    this.controller.addEventListener( 'connected', function (event) {
+      self.buildController.call(self, event.data, this)
+    })
 
     this.scene.add(this.controller)
+  }
+
+  buildController(data, controller) {
+    if (data.targetRayMode === 'tracked-pointer') {
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -1)
+      ])
+      const line = new THREE.Line(geometry)
+      line.name = 'line'
+      line.scale.z = 0
+
+      this.controller.add(line)
+      this.controller.userData.selectPressed = false
+
+      const grip = this.renderer.xr.getControllerGrip(this.index)
+      grip.add(new XRControllerModelFactory().createControllerModel(grip))
+      this.scene.add(grip)
+
+      this.dolly.add(controller)
+      this.dolly.add(grip)
+    } else if (data.targetRayMode === 'gaze') {
+    }
   }
 
   handle() {

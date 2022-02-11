@@ -7,11 +7,12 @@ import {SpotLightVolumetricMaterial} from "../utils/SpotLightVolumetricMaterial"
 export class FlashLightController extends Controller {
   spotlights = {}
 
-  constructor(renderer, index, scene, movableObjects, highlight) {
+  constructor(renderer, index, scene, movableObjects, highlight, dolly) {
     super(renderer, index)
     this.scene = scene
     this.movableObjects = movableObjects
     this.highlight = highlight
+    this.dolly = dolly
     this.workingMatrix = new THREE.Matrix4()
     this.raycaster = new THREE.Raycaster()
 
@@ -109,6 +110,8 @@ export class FlashLightController extends Controller {
             const cone = new THREE.Mesh(geometry, material)
             cone.translateZ(-2.6)
             spotlightGroup.add(cone)
+
+            self.dolly.add(self.controller)
           },
           null,
           (error) => console.error(`An error happened: ${error}`)

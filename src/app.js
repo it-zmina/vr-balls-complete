@@ -1,10 +1,14 @@
-import * as THREE from 'three'
+import * as THREE from 'three/build/three.module.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {SelectController} from "./controllers/SelectController";
 import {CanvasUI} from "./utils/CanvasUI";
 import {FlashLightController} from "./controllers/FlashLightController";
+import {DragController} from "./controllers/DragController";
+
+import blimp from "../assets/Blimp.glb"
+import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
 
 class App {
   constructor() {
@@ -99,6 +103,14 @@ class App {
       color: 0xFFFFFF, side: THREE.BackSide }))
     this.highlight.scale.set( 1.2, 1.2, 1.2)
     this.scene.add( this.highlight )
+
+    const self = this
+
+    this.loadAsset(blimp, .5, .5, 1, scene => {
+      const scale = 5
+      scene.scale.set(scale, scale, scale)
+      self.blimp = scene
+    })
   }
 
   initBoxes() {
@@ -139,6 +151,22 @@ class App {
     }
   }
 
+  loadAsset(gltfFilename, x, y, z, sceneHandler) {
+    const self = this
+    const loader = new GLTFLoader()
+    loader.load(gltfFilename, (gltf) => {
+          const gltfScene = gltf.scene
+          self.scene.add(gltfScene)
+          gltfScene.position.set(x, y, z)
+          if (sceneHandler) {
+            sceneHandler(gltfScene)
+          }
+        },
+        null,
+        (error) => console.error(`An error happened: ${error}`)
+    )
+  }
+
   createUI(){
     const config = {
       panelSize: { height: 0.8 },
@@ -171,14 +199,23 @@ class App {
   setupVR(){
     this.renderer.xr.enabled = true
     document.body.appendChild( VRButton.createButton( this.renderer ) )
+
+    this.dolly = new THREE.Object3D();
+    this.dolly.position.z = 0;
+    this.dolly.add( this.camera );
+    this.scene.add( this.dolly );
+
+    this.dummyCam = new THREE.Object3D();
+    this.camera.add( this.dummyCam );
+
     const self = this
     let i = 0
-    // this.controllers[i] = new DragController(this.renderer, i++, this.scene,
-    //     this.movableObjects)
+    this.controllers[i] = new DragController(this.renderer, i++, this.scene,
+        this.movableObjects, this.dolly)
     this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene,
-        this.movableObjects, this.highlight)
-    this.controllers[i] = new SelectController(this.renderer, i++, this.scene,
-        this.movableObjects, this.highlight)
+        this.movableObjects, this.highlight, this.dolly)
+    // this.controllers[i] = new SelectController(this.renderer, i++, this.scene,
+    //     this.movableObjects, this.highlight, this.dolly)
 
     if (this.controllers.length > 1) {
       this.leftUi = this.createUI()
@@ -189,19 +226,47 @@ class App {
       this.leftUi = this.createUI()
     }
 
-    this.dolly = new THREE.Object3D();
-    this.dolly.position.z = 5;
-    this.dolly.add( this.camera );
-    this.scene.add( this.dolly );
-
-    this.dummyCam = new THREE.Object3D();
-    this.camera.add( this.dummyCam );
   }
 
   resize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
+  }
+
+  controllerAction(dt) {
+    if (!this.renderer.xr.isPresenting && this.controllers.length === 0) {
+      return
+    }
+
+    if (this.blimp && this.controllers[0].buttonStates) {
+      const buttonStates = this.controllers[0].buttonStates
+      if (buttonStates["xr_standard_thumbstick"].button) {
+        const scale = 10
+        this.blimp.scale.set(scale, scale, scale)
+      } else if (this.blimp) {
+        const scale = 5
+        this.blimp.scale.set(scale, scale, scale)
+      }
+      const xAxis = buttonStates["xr_standard_thumbstick"].xAxis
+      const yAxis = buttonStates["xr_standard_thumbstick"].yAxis
+      this.blimp.rotateY(0.1 * xAxis)
+      this.blimp.translateY(.02 * yAxis)
+    }
+
+    if (this.controllers[0].buttonStates && this.controllers[0]
+        .buttonStates["xr_standard_trigger"]
+        // .buttonStates["xr_standard_squeeze"]
+    ) {
+      const speed = 2
+      const quaternion = this.dolly.quaternion.clone()
+      let worldQuaternion = new THREE.Quaternion()
+      this.dummyCam.getWorldQuaternion(worldQuaternion)
+      this.dolly.quaternion.copy(worldQuaternion)
+      this.dolly.translateZ(-dt * speed)
+      this.dolly.position.y = 0
+      this.dolly.quaternion.copy(quaternion)
+    }
   }
 
   render() {
@@ -215,18 +280,7 @@ class App {
         this.controllers.forEach(controller => controller.handle())
     }
 
-    if (this.controllers.length > 0 && this.controllers[0].buttonStates) {
-      if (this.controllers[0].buttonStates["xr_standard_trigger"]) {
-        const speed = 2
-        const quaternion = this.dolly.quaternion.clone()
-        let worldQuaternion = new THREE.Quaternion()
-        this.dummyCam.getWorldQuaternion(worldQuaternion)
-        this.dolly.quaternion.copy(worldQuaternion)
-        this.dolly.translateZ(-dt * speed)
-        this.dolly.position.y = 0
-        this.dolly.quaternion.copy(quaternion)
-      }
-    }
+    this.controllerAction(dt)
 
     this.showDebugText(dt)
 

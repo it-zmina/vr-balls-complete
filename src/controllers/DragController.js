@@ -5,33 +5,18 @@ import * as THREE from "three";
 export class DragController extends Controller {
   intersected = [];
 
-  constructor(renderer, index, scene, movableObjects) {
+  constructor(renderer, index, scene, movableObjects, dolly) {
     super(renderer, index)
     this.scene = scene
     this.movableObjects = movableObjects
+    this.dolly = dolly
     this.workingMatrix = new THREE.Matrix4();
     this.rayCaster = new THREE.Raycaster();
 
-    this.build(index)
+    this.build()
   }
 
-  build(index) {
-    const controllerModelFactory = new XRControllerModelFactory()
-    const geometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0),
-      new THREE.Vector3(0, 0, -1)
-    ])
-    const line = new THREE.Line(geometry)
-    line.name = 'line'
-    line.scale.z = 0
-
-    this.controller.add(line)
-    this.controller.userData.selectPressed = false
-
-    const grip = this.renderer.xr.getControllerGrip(index)
-    grip.add(controllerModelFactory.createControllerModel(grip))
-    this.scene.add(grip)
-
+  build() {
     const self = this
 
     function onSelectStart(event) {
@@ -60,10 +45,35 @@ export class DragController extends Controller {
 
     this.controller.addEventListener('selectstart', onSelectStart);
     this.controller.addEventListener('selectend', onSelectEnd);
-
-
+    this.controller.addEventListener( 'connected', function (event) {
+      self.buildController.call(self, event.data, this)
+    })
 
     this.scene.add(this.controller)
+  }
+
+  buildController(data, controller) {
+    if (data.targetRayMode === 'tracked-pointer') {
+      const controllerModelFactory = new XRControllerModelFactory()
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -1)
+      ])
+      const line = new THREE.Line(geometry)
+      line.name = 'line'
+      line.scale.z = 0
+
+      this.controller.add(line)
+      this.controller.userData.selectPressed = false
+
+      const grip = this.renderer.xr.getControllerGrip(this.index)
+      grip.add(controllerModelFactory.createControllerModel(grip))
+      this.scene.add(grip)
+
+      this.dolly.add(controller)
+      this.dolly.add(grip)
+    } else if (data.targetRayMode === 'gaze') {
+    }
   }
 
   getIntersections() {
